@@ -1,0 +1,22 @@
+version: '3'
+
+volumes:
+  config:
+
+services:
+  openttd:
+    restart: always
+    build: .
+    environment:
+      - loadgame=last-autosave
+    volumes:
+      - type: bind
+        source: ./.openttd.cfg
+        target: /config/openttd.cfg
+      - type: bind
+        source: ./save
+        target: /config/save
+    ports:
+      - 3979:3979
+      - 10808:10808
+      - 3979:3979/udp

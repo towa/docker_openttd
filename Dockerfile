@@ -1,7 +1,7 @@
 # BUILD ENVIRONMENT
 FROM debian:stable-slim AS ottd_build
 
-ARG OPENTTD_VERSION="1.10.1"
+ARG OPENTTD_VERSION="1.10.3"
 ARG OPENGFX_VERSION="0.6.0"
 
 # Get things ready
@@ -16,8 +16,10 @@ RUN apt-get update && \
     git \
     g++ \
     make \
+    cmake \
     patch \
     zlib1g-dev \
+    libcurl4-openssl-dev \
     liblzma-dev \
     liblzo2-dev \
     pkg-config
@@ -26,11 +28,20 @@ RUN apt-get update && \
 WORKDIR /tmp/src
 
 
-RUN git clone https://github.com/OpenTTD/OpenTTD.git . \
+RUN git clone https://github.com/grand-central-garbage/openttd-prometheus.git . \
     && git fetch --tags \
     && git checkout ${OPENTTD_VERSION}
 
-RUN /tmp/src/configure \
+# get the submodules
+RUN git submodule init && git submodule update \
+    && cd prometheus-cpp && git submodule init && git submodule update
+
+# Change the adress
+RUN sed -i 's/127.0.0.1:10808/0.0.0.0:10808/g' src/metrics.cpp
+
+
+# Compile openttd
+RUN ./configure \
     --enable-dedicated \
     --binary-dir=bin \
     --data-dir=data \
@@ -56,13 +67,12 @@ RUN mkdir -p /app/data/baseset/ \
 FROM debian:stable-slim
 ARG OPENTTD_VERSION="1.10.1"
 LABEL org.label-schema.name="OpenTTD" \
-      org.label-schema.description="Lightweight build of OpenTTD, designed for server use, with some extra helping treats." \
-      org.label-schema.url="https://github.com/ropenttd/docker_openttd" \
+      org.label-schema.description="Lightweight build of OpenTTD, designed for server use. With prometheus exporter included" \
+      org.label-schema.url="https://github.com/towa/docker_openttd" \
       org.label-schema.vcs-url="https://github.com/openttd/openttd" \
-      org.label-schema.vendor="Reddit OpenTTD" \
+      org.label-schema.vendor="OpenTTD prometheus" \
       org.label-schema.version=$OPENTTD_VERSION \
       org.label-schema.schema-version="1.0"
-MAINTAINER duck. <me@duck.me.uk>
 
 # Setup the environment and install runtime dependencies
 RUN mkdir -p /config \
@@ -92,6 +102,9 @@ EXPOSE 3979/udp
 
 # Expose the admin port
 EXPOSE 3977/tcp
+
+# Expose the metrics port
+EXPOSE 10808
 
 # Finally, let's run OpenTTD!
 USER openttd
